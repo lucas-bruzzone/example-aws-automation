@@ -57,24 +57,20 @@ jobs:
         cat > README.md << EOF
         # ${{ inputs.project_name }}
 
-        Terraform infrastructure repository
+        Repositório base para infraestrutura Terraform
 
-        ## Configuração Inicial
+        ## Configuração
 
-        1. Configure as secrets do repositório:
-           - \`AWS_ROLE_ARN\`: ARN do role para assumir no AWS
-
-        2. Ajuste as variáveis em \`tfvars/devops.tfvars\` conforme necessário
-
-        3. Certifique-se de que o bucket S3 e tabela DynamoDB existem:
-           - Bucket: \`${{ inputs.project_name }}-terraform-state\`
-           - DynamoDB: \`${{ inputs.project_name }}-terraform-lock\`
+        O repositório já está configurado com:
+        - Workflow do GitHub Actions para deploy automático
+        - Secret \`AWS_ROLE_ARN\` configurado
+        - Estrutura base do Terraform
 
         ## Deploy
 
-        O deploy é automático via GitHub Actions quando há push na branch main.
+        Deploy automático via GitHub Actions quando há push na branch main.
 
-        Para deploy manual:
+        Deploy manual:
         \`\`\`bash
         cd terraform
         terraform init
