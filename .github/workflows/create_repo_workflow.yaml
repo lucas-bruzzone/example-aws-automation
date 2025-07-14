@@ -1,0 +1,126 @@
+name: 'Create Repository from Template'
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Nome do projeto'
+        required: true
+        type: string
+
+env:
+  TEMPLATE_REPO: 'lucas-bruzzone/example-aws-terraform-template'
+
+jobs:
+  create-repository:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout template repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ env.TEMPLATE_REPO }}
+        token: ${{ secrets.GH_PAT }}
+        path: template
+
+    - name: Create new repository
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        gh repo create ${{ github.repository_owner }}/${{ inputs.project_name }} \
+          --template ${{ env.TEMPLATE_REPO }} \
+          --public \
+          --clone
+
+    - name: Configure new repository
+      working-directory: ${{ inputs.project_name }}
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+        REPO_NAME: ${{ inputs.project_name }}
+        PROJECT_NAME: ${{ inputs.project_name }}
+      run: |
+        # Substituir placeholders nos arquivos
+        find . -type f -name "*.tf" -o -name "*.tfvars" -o -name "*.yaml" -o -name "*.yml" | \
+          xargs sed -i "s/REPO_NAME/$REPO_NAME/g"
+        
+        find . -type f -name "*.tf" -o -name "*.tfvars" | \
+          xargs sed -i "s/REPLACE_WITH_PROJECT_NAME/$PROJECT_NAME/g"
+        
+        # Atualizar backend S3 com nome único
+        sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-terraform-state/g" versions.tf
+        sed -i "s/example-aws-terraform-terraform-lock/${PROJECT_NAME}-terraform-lock/g" versions.tf
+        sed -i "s/example-aws-terraform-template/${PROJECT_NAME}/g" versions.tf
+
+    - name: Create README
+      working-directory: ${{ inputs.project_name }}
+      run: |
+        cat > README.md << EOF
+        # ${{ inputs.project_name }}
+
+        Terraform infrastructure repository
+
+        ## Configuração Inicial
+
+        1. Configure as secrets do repositório:
+           - \`AWS_ROLE_ARN\`: ARN do role para assumir no AWS
+
+        2. Ajuste as variáveis em \`tfvars/devops.tfvars\` conforme necessário
+
+        3. Certifique-se de que o bucket S3 e tabela DynamoDB existem:
+           - Bucket: \`${{ inputs.project_name }}-terraform-state\`
+           - DynamoDB: \`${{ inputs.project_name }}-terraform-lock\`
+
+        ## Deploy
+
+        O deploy é automático via GitHub Actions quando há push na branch main.
+
+        Para deploy manual:
+        \`\`\`bash
+        cd terraform
+        terraform init
+        terraform plan -var-file="tfvars/devops.tfvars"
+        terraform apply -var-file="tfvars/devops.tfvars"
+        \`\`\`
+
+        ## Estrutura
+
+        - \`terraform/\` - Arquivos Terraform
+        - \`.github/workflows/\` - GitHub Actions
+        - \`tfvars/\` - Arquivos de variáveis
+        EOF
+
+    - name: Commit and push changes
+      working-directory: ${{ inputs.project_name }}
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        git config user.name "Repository Creator Bot"
+        git config user.email "actions@github.com"
+        
+        git add .
+        git commit -m "feat: configure repository from template for ${{ inputs.project_name }}"
+        git push origin main
+
+    - name: Configure repository secrets
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+        REPO_NAME: ${{ inputs.project_name }}
+      run: |
+        # Copiar secrets importantes do repositório template se existirem
+        if [ -n "${{ secrets.AWS_ROLE_ARN }}" ]; then
+          gh secret set AWS_ROLE_ARN \
+            --repo ${{ github.repository_owner }}/$REPO_NAME \
+            --body "${{ secrets.AWS_ROLE_ARN }}"
+        fi
+
+    - name: Create success summary
+      run: |
+        echo "✅ Repositório criado com sucesso!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Repositório:** https://github.com/${{ github.repository_owner }}/${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Projeto:** ${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Próximos passos:" >> $GITHUB_STEP_SUMMARY
+        echo "1. Configure a secret \`AWS_ROLE_ARN\` no novo repositório" >> $GITHUB_STEP_SUMMARY
+        echo "2. Crie o bucket S3: \`${{ inputs.project_name }}-terraform-state\`" >> $GITHUB_STEP_SUMMARY
+        echo "3. Crie a tabela DynamoDB: \`${{ inputs.project_name }}-terraform-lock\`" >> $GITHUB_STEP_SUMMARY
