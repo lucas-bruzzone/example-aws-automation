@@ -48,9 +48,7 @@ jobs:
         
         find . -type f \( -name "*.tf" -o -name "*.tfvars" \) -exec sed -i "s/REPLACE_WITH_PROJECT_NAME/$PROJECT_NAME/g" {} +
         
-        # Atualizar backend S3 com nome único (encontrar arquivo versions.tf)
-        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-terraform-state/g" {} +
-        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-lock/${PROJECT_NAME}-terraform-lock/g" {} +
+        # Atualizar backend S3 com nome único (apenas o key)
         find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-template/${PROJECT_NAME}/g" {} +
 
     - name: Create README
