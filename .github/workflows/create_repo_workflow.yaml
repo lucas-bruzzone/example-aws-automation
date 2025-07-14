@@ -96,8 +96,10 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GH_PAT }}
       run: |
+        # Configurar git com token
         git config user.name "Repository Creator Bot"
         git config user.email "actions@github.com"
+        git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository_owner }}/${{ inputs.project_name }}.git
         
         git add .
         git commit -m "feat: configure repository from template for ${{ inputs.project_name }}"
