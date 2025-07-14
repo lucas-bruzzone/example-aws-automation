@@ -39,17 +39,19 @@ jobs:
         REPO_NAME: ${{ inputs.project_name }}
         PROJECT_NAME: ${{ inputs.project_name }}
       run: |
+        # Verificar estrutura do repositório
+        echo "Estrutura do repositório:"
+        find . -name "*.tf" -o -name "*.tfvars" -o -name "*.yaml" -o -name "*.yml" | head -10
+        
         # Substituir placeholders nos arquivos
-        find . -type f -name "*.tf" -o -name "*.tfvars" -o -name "*.yaml" -o -name "*.yml" | \
-          xargs sed -i "s/REPO_NAME/$REPO_NAME/g"
+        find . -type f \( -name "*.tf" -o -name "*.tfvars" -o -name "*.yaml" -o -name "*.yml" \) -exec sed -i "s/REPO_NAME/$REPO_NAME/g" {} +
         
-        find . -type f -name "*.tf" -o -name "*.tfvars" | \
-          xargs sed -i "s/REPLACE_WITH_PROJECT_NAME/$PROJECT_NAME/g"
+        find . -type f \( -name "*.tf" -o -name "*.tfvars" \) -exec sed -i "s/REPLACE_WITH_PROJECT_NAME/$PROJECT_NAME/g" {} +
         
-        # Atualizar backend S3 com nome único
-        sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-terraform-state/g" versions.tf
-        sed -i "s/example-aws-terraform-terraform-lock/${PROJECT_NAME}-terraform-lock/g" versions.tf
-        sed -i "s/example-aws-terraform-template/${PROJECT_NAME}/g" versions.tf
+        # Atualizar backend S3 com nome único (encontrar arquivo versions.tf)
+        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-terraform-state/g" {} +
+        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-lock/${PROJECT_NAME}-terraform-lock/g" {} +
+        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-template/${PROJECT_NAME}/g" {} +
 
     - name: Create README
       working-directory: ${{ inputs.project_name }}
