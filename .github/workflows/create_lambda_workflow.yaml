@@ -50,9 +50,6 @@ jobs:
         find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-terraform-state/g" {} +
         find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-lock/${PROJECT_NAME}-terraform-lock/g" {} +
         
-        # Atualizar data source para network state
-        find . -name "data.tf" -exec sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-network-terraform-state/g" {} +
-        find . -name "data.tf" -exec sed -i "s/example-aws-network/${PROJECT_NAME}-network/g" {} +
         
         # Atualizar Repository tag no provider
         find . -name "versions.tf" -exec sed -i "s/Repository  = \"example-aws-lambda-template\"/Repository  = \"$PROJECT_NAME\"/g" {} +
@@ -141,19 +138,3 @@ jobs:
             --repo ${{ github.repository_owner }}/$REPO_NAME \
             --body "${{ secrets.AWS_ROLE_ARN }}"
         fi
-
-    - name: Create success summary
-      run: |
-        echo "🚀 Repositório Lambda criado com sucesso!" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Repositório:** https://github.com/${{ github.repository_owner }}/${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Projeto:** ${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Tipo:** AWS Lambda Function" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "### Próximos passos:" >> $GITHUB_STEP_SUMMARY
-        echo "1. ✅ Configure a secret \`AWS_ROLE_ARN\` no novo repositório" >> $GITHUB_STEP_SUMMARY
-        echo "2. 🪣 Crie o bucket S3: \`${{ inputs.project_name }}-terraform-state\`" >> $GITHUB_STEP_SUMMARY
-        echo "3. 🗄️ Crie a tabela DynamoDB: \`${{ inputs.project_name }}-terraform-lock\`" >> $GITHUB_STEP_SUMMARY
-        echo "4. 🌐 Certifique-se que o repositório de network existe: \`${{ inputs.project_name }}-network\`" >> $GITHUB_STEP_SUMMARY
-        echo "5. 🐍 Adicione o código Python em \`code/lambda_function.py\`" >> $GITHUB_STEP_SUMMARY
-        echo "6. 📦 Configure dependências em \`lambda-layer/requirements.txt\`" >> $GITHUB_STEP_SUMMARY
