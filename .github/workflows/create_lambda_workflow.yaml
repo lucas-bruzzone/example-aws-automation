@@ -48,8 +48,9 @@ jobs:
         
         # Atualizar backend S3 com nome único
         find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-terraform-state/g" {} +
-        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-lock/${PROJECT_NAME}-terraform-lock/g" {} +
         
+        # Atualizar key do S3 state com nome do projeto
+        find . -name "versions.tf" -exec sed -i "s/example-aws-lambda-template\/terraform.tfstate/${PROJECT_NAME}\/terraform.tfstate/g" {} +
         
         # Atualizar Repository tag no provider
         find . -name "versions.tf" -exec sed -i "s/Repository  = \"example-aws-lambda-template\"/Repository  = \"$PROJECT_NAME\"/g" {} +
@@ -74,7 +75,7 @@ jobs:
         ## Pré-requisitos
 
         1. Bucket S3: \`${{ inputs.project_name }}-terraform-state\`
-        2. Tabela DynamoDB: \`${{ inputs.project_name }}-terraform-lock\`
+        2. Tabela DynamoDB: \`example-aws-terraform-terraform-lock\` (compartilhada)
         3. Repositório de network: \`${{ inputs.project_name }}-network\` com state em \`${{ inputs.project_name }}-network-terraform-state\`
         4. Secret \`AWS_ROLE_ARN\` configurado no GitHub
 
