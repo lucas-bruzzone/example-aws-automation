@@ -1,0 +1,159 @@
+name: 'Create Lambda Repository from Template'
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Nome do projeto Lambda'
+        required: true
+        type: string
+
+env:
+  TEMPLATE_REPO: 'lucas-bruzzone/example-aws-lambda-template'
+
+jobs:
+  create-lambda-repository:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout template repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ env.TEMPLATE_REPO }}
+        token: ${{ secrets.GH_PAT }}
+        path: template
+
+    - name: Create new repository
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        gh repo create ${{ github.repository_owner }}/${{ inputs.project_name }} \
+          --template ${{ env.TEMPLATE_REPO }} \
+          --public \
+          --clone
+
+    - name: Configure new repository
+      working-directory: ${{ inputs.project_name }}
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+        REPO_NAME: ${{ inputs.project_name }}
+        PROJECT_NAME: ${{ inputs.project_name }}
+      run: |
+        # Verificar estrutura do repositório
+        echo "Estrutura do repositório Lambda:"
+        find . -name "*.tf" -o -name "*.tfvars" -o -name "*.yaml" -o -name "*.yml" -o -name "*.py" | head -15
+        
+        # Substituir placeholders nos arquivos Terraform
+        find . -type f \( -name "*.tf" -o -name "*.tfvars" \) -exec sed -i "s/example-aws-lambda-template/$PROJECT_NAME/g" {} +
+        
+        # Atualizar backend S3 com nome único
+        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-terraform-state/g" {} +
+        find . -name "versions.tf" -exec sed -i "s/example-aws-terraform-terraform-lock/${PROJECT_NAME}-terraform-lock/g" {} +
+        
+        # Atualizar data source para network state
+        find . -name "data.tf" -exec sed -i "s/example-aws-terraform-terraform-state/${PROJECT_NAME}-network-terraform-state/g" {} +
+        find . -name "data.tf" -exec sed -i "s/example-aws-network/${PROJECT_NAME}-network/g" {} +
+        
+        # Atualizar Repository tag no provider
+        find . -name "versions.tf" -exec sed -i "s/Repository  = \"example-aws-lambda-template\"/Repository  = \"$PROJECT_NAME\"/g" {} +
+
+    - name: Create README
+      working-directory: ${{ inputs.project_name }}
+      run: |
+        cat > README.md << EOF
+        # ${{ inputs.project_name }}
+
+        Repositório para função Lambda baseado em template Terraform
+
+        ## Descrição
+
+        Este repositório contém a infraestrutura como código (Terraform) para uma função Lambda AWS com:
+        - Função Lambda Python 3.11
+        - Lambda Layer para dependências
+        - Role IAM com permissões básicas
+        - Security Group configurado
+        - Integração com VPC via remote state
+
+        ## Pré-requisitos
+
+        1. Bucket S3: \`${{ inputs.project_name }}-terraform-state\`
+        2. Tabela DynamoDB: \`${{ inputs.project_name }}-terraform-lock\`
+        3. Repositório de network: \`${{ inputs.project_name }}-network\` com state em \`${{ inputs.project_name }}-network-terraform-state\`
+        4. Secret \`AWS_ROLE_ARN\` configurado no GitHub
+
+        ## Estrutura
+
+        - \`terraform/\` - Arquivos Terraform
+        - \`code/\` - Código fonte da Lambda
+        - \`lambda-layer/\` - Dependências Python para layer
+        - \`.github/workflows/\` - GitHub Actions para deploy
+        - \`tfvars/\` - Arquivos de variáveis
+
+        ## Deploy
+
+        ### Automático
+        Deploy automático via GitHub Actions quando há push na branch main.
+
+        ### Manual
+        \`\`\`bash
+        cd terraform
+        terraform init
+        terraform plan -var-file="tfvars/devops.tfvars"
+        terraform apply -var-file="tfvars/devops.tfvars"
+        \`\`\`
+
+        ## Configuração
+
+        1. Ajuste as variáveis em \`tfvars/devops.tfvars\`
+        2. Modifique o código Lambda em \`code/lambda_function.py\`
+        3. Adicione dependências Python em \`lambda-layer/requirements.txt\`
+
+        ## Outputs
+
+        - \`lambda_function_name\` - Nome da função Lambda
+        - \`lambda_function_arn\` - ARN da função Lambda
+        - \`lambda_invoke_arn\` - ARN de invocação
+        - \`lambda_layer_arn\` - ARN do Lambda Layer
+        EOF
+
+    - name: Commit and push changes
+      working-directory: ${{ inputs.project_name }}
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        # Configurar git com token
+        git config user.name "Lambda Repository Creator Bot"
+        git config user.email "actions@github.com"
+        git remote set-url origin https://x-access-token:${{ secrets.GH_PAT }}@github.com/${{ github.repository_owner }}/${{ inputs.project_name }}.git
+        
+        git add .
+        git commit -m "feat: configure Lambda repository from template for ${{ inputs.project_name }}"
+        git push origin main
+
+    - name: Configure repository secrets
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+        REPO_NAME: ${{ inputs.project_name }}
+      run: |
+        # Copiar secrets importantes do repositório template se existirem
+        if [ -n "${{ secrets.AWS_ROLE_ARN }}" ]; then
+          gh secret set AWS_ROLE_ARN \
+            --repo ${{ github.repository_owner }}/$REPO_NAME \
+            --body "${{ secrets.AWS_ROLE_ARN }}"
+        fi
+
+    - name: Create success summary
+      run: |
+        echo "🚀 Repositório Lambda criado com sucesso!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Repositório:** https://github.com/${{ github.repository_owner }}/${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Projeto:** ${{ inputs.project_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Tipo:** AWS Lambda Function" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Próximos passos:" >> $GITHUB_STEP_SUMMARY
+        echo "1. ✅ Configure a secret \`AWS_ROLE_ARN\` no novo repositório" >> $GITHUB_STEP_SUMMARY
+        echo "2. 🪣 Crie o bucket S3: \`${{ inputs.project_name }}-terraform-state\`" >> $GITHUB_STEP_SUMMARY
+        echo "3. 🗄️ Crie a tabela DynamoDB: \`${{ inputs.project_name }}-terraform-lock\`" >> $GITHUB_STEP_SUMMARY
+        echo "4. 🌐 Certifique-se que o repositório de network existe: \`${{ inputs.project_name }}-network\`" >> $GITHUB_STEP_SUMMARY
+        echo "5. 🐍 Adicione o código Python em \`code/lambda_function.py\`" >> $GITHUB_STEP_SUMMARY
+        echo "6. 📦 Configure dependências em \`lambda-layer/requirements.txt\`" >> $GITHUB_STEP_SUMMARY
